@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Reservas · Canchas</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Canchas">
+<meta name="theme-color" content="#0F3B2E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230F3B2E'/%3E%3Cg stroke='%23F4F0E6' stroke-width='4' fill='none'%3E%3Crect x='14' y='14' width='72' height='72' rx='6'/%3E%3Cline x1='50' y1='14' x2='50' y2='86'/%3E%3Ccircle cx='50' cy='50' r='12'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root{
+    --turf-900:#0F3B2E;
+    --turf-800:#154B3A;
+    --turf-700:#1C5D47;
+    --line:#F4F0E6;
+    --chalk:#F4F0E6;
+    --clay:#C7622A;
+    --clay-dim:#8A4620;
+    --slot-empty:#173F31;
+    --slot-empty-hover:#1E4E3D;
+    --slot-filled:#F4F0E6;
+    --slot-filled-text:#0F3B2E;
+    --gap:1px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--turf-900);
+    color:var(--chalk);
+    font-family:'Avenir Next','Segoe UI',system-ui,-apple-system,sans-serif;
+    overscroll-behavior-y:none;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* Signature: yardage-line texture behind everything */
+  .field-lines{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:repeating-linear-gradient(
+      90deg,
+      rgba(244,240,230,0.035) 0px,
+      rgba(244,240,230,0.035) 1px,
+      transparent 1px,
+      transparent 64px
+    );
+  }
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--turf-900);
+    padding:16px 18px 10px;
+    border-bottom:1px solid rgba(244,240,230,0.12);
+  }
+  .brand{
+    display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  }
+  .brand h1{
+    margin:0; font-size:20px; font-weight:800; letter-spacing:0.02em;
+    font-variant-numeric:tabular-nums;
+  }
+  .brand h1 span{color:var(--clay);}
+  .totalpill{
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    background:rgba(244,240,230,0.08); border:1px solid rgba(244,240,230,0.15);
+    padding:5px 10px; border-radius:20px; white-space:nowrap;
+  }
+  .totalpill b{color:var(--clay); font-variant-numeric:tabular-nums;}
+  .datebar{
+    display:flex; align-items:center; gap:8px; margin-top:12px;
+  }
+  .datebar button.nav{
+    background:rgba(244,240,230,0.08); border:1px solid rgba(244,240,230,0.15);
+    color:var(--chalk); width:34px; height:34px; border-radius:10px;
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+  }
+  .datebar input[type=date]{
+    flex:1; background:rgba(244,240,230,0.08); border:1px solid rgba(244,240,230,0.15);
+    color:var(--chalk); padding:8px 10px; border-radius:10px; font-size:14px;
+    font-family:inherit; color-scheme:dark;
+  }
+  .dayname{
+    margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(244,240,230,0.55); text-align:center;
+  }
+  main{position:relative; z-index:1; padding:14px 10px 40px;}
+  .grid-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table.grid{
+    border-collapse:separate; border-spacing:0;
+    width:100%; min-width:640px;
+  }
+  .grid thead th{
+    position:sticky; top:0; z-index:5;
+    background:var(--turf-900);
+    font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+    color:rgba(244,240,230,0.7);
+    padding:8px 6px 10px;
+    text-align:center;
+    border-bottom:1px solid rgba(244,240,230,0.18);
+  }
+  .grid thead th.timecol{width:64px;}
+  .grid thead th .courtnum{
+    display:block; font-size:20px; font-weight:800; color:var(--chalk);
+    line-height:1.1;
+  }
+  .grid thead th .courtlabel{font-size:10px; color:rgba(244,240,230,0.45);}
+  .grid td.timecell{
+    font-size:12px; font-variant-numeric:tabular-nums;
+    color:rgba(244,240,230,0.55);
+    padding:0 8px 0 2px; text-align:right; white-space:nowrap;
+    border-bottom:var(--gap) solid var(--turf-900);
+  }
+  .grid td.slot{
+    border:var(--gap) solid var(--turf-900);
+    padding:0;
+    height:56px;
+    min-width:130px;
+  }
+  .slotbtn{
+    width:100%; height:100%; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+    padding:6px 10px; text-align:left;
+    background:var(--slot-empty); color:rgba(244,240,230,0.28);
+    font-family:inherit; border-radius:8px;
+    transition:background .12s ease;
+  }
+  .slotbtn:active{background:var(--slot-empty-hover);}
+  .slotbtn.filled{
+    background:var(--slot-filled); color:var(--slot-filled-text);
+  }
+  .slotbtn.filled:active{background:#e8e2d0;}
+  .slotbtn .empty-mark{font-size:13px;}
+  .slotbtn .name{
+    font-size:13px; font-weight:700; line-height:1.15;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  }
+  .slotbtn .amt{
+    margin-top:2px; font-size:12px; font-weight:600;
+    font-variant-numeric:tabular-nums; color:var(--clay-dim);
+  }
+  .slotbtn .amt.unpaid{color:#a33; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,20,16,0.6);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .overlay.open{display:flex;}
+  .sheet{
+    background:var(--chalk); color:var(--turf-900);
+    width:100%; max-width:480px;
+    border-radius:20px 20px 0 0;
+    padding:20px 20px calc(24px + env(safe-area-inset-bottom));
+    animation:up .18s ease;
+  }
+  @keyframes up{from{transform:translateY(24px); opacity:0} to{transform:translateY(0); opacity:1}}
+  .sheet h2{margin:0 0 2px; font-size:17px; font-weight:800;}
+  .sheet .meta{font-size:12px; color:#5b6b62; margin-bottom:16px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#5b6b62; margin-bottom:6px;}
+  .field input{
+    width:100%; border:1.5px solid #d8d2c0; border-radius:10px;
+    padding:11px 12px; font-size:16px; font-family:inherit;
+    background:#fff; color:var(--turf-900);
+  }
+  .field input:focus{outline:none; border-color:var(--turf-700);}
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+  .sheet-actions{display:flex; gap:10px; margin-top:6px;}
+  .btn{
+    flex:1; padding:13px; border-radius:12px; border:none;
+    font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;
+  }
+  .btn.save{background:var(--turf-900); color:var(--chalk);}
+  .btn.delete{background:#f2e6e0; color:#a33;}
+  .btn.cancel{background:transparent; color:#5b6b62; flex:0 0 auto; padding:13px 16px;}
+</style>
+</head>
+<body>
+
+<div class="field-lines"></div>
+
+<header>
+  <div class="brand">
+    <h1>Reservas <span>·</span> 4 Canchas</h1>
+    <div class="totalpill">Hoy: <b id="totalHoy">$0</b></div>
+  </div>
+  <div class="datebar">
+    <button class="nav" id="prevDay" aria-label="Día anterior">‹</button>
+    <input type="date" id="datePicker">
+    <button class="nav" id="nextDay" aria-label="Día siguiente">›</button>
+  </div>
+  <div class="dayname" id="dayName"></div>
+</header>
+
+<main>
+  <div class="grid-wrap">
+    <table class="grid">
+      <thead>
+        <tr id="headRow">
+          <th class="timecol"></th>
+        </tr>
+      </thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h2 id="sheetTitle">Cancha 1</h2>
+    <div class="meta" id="sheetMeta">7:00 · Viernes 31 Jul</div>
+    <div class="field">
+      <label for="fName">Nombre</label>
+      <input id="fName" type="text" placeholder="Nombre del cliente" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="fAmount">Abonado</label>
+        <input id="fAmount" type="number" inputmode="decimal" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="fTotal">Valor total (opcional)</label>
+        <input id="fTotal" type="number" inputmode="decimal" placeholder="0">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn cancel" id="btnCancel">Cerrar</button>
+      <button class="btn delete" id="btnDelete">Borrar</button>
+      <button class="btn save" id="btnSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const COURTS = 4;
+  const START_HOUR = 15;
+  const END_HOUR = 22; // last slot starts at 22:00 (10pm)
+  const STORE_KEY = 'canchas_reservas_v1';
+
+  const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  function todayISO(){
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0,10);
+  }
+
+  let currentDate = todayISO();
+  let store = loadStore();
+
+  function loadStore(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+  function saveStore(){
+    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  }
+
+  function slotKey(hour){ return hour + ':00'; }
+
+  function fmtHour(hour){
+    const period = hour >= 12 ? 'pm' : 'am';
+    let h12 = hour % 12;
+    if(h12 === 0) h12 = 12;
+    return h12 + ':00 ' + period;
+  }
+
+  function fmtMoney(n){
+    n = Number(n)||0;
+    return '$' + n.toLocaleString('es-CO');
+  }
+
+  function buildHead(){
+    const row = document.getElementById('headRow');
+    row.innerHTML = '<th class="timecol"></th>';
+    for(let c=1;c<=COURTS;c++){
+      const th = document.createElement('th');
+      th.innerHTML = '<span class="courtnum">'+c+'</span><span class="courtlabel">Cancha</span>';
+      row.appendChild(th);
+    }
+  }
+
+  function buildGrid(){
+    const body = document.getElementById('gridBody');
+    body.innerHTML = '';
+    for(let h=START_HOUR; h<=END_HOUR; h++){
+      const tr = document.createElement('tr');
+      const tTd = document.createElement('td');
+      tTd.className = 'timecell';
+      tTd.textContent = fmtHour(h);
+      tr.appendChild(tTd);
+
+      for(let c=1;c<=COURTS;c++){
+        const td = document.createElement('td');
+        td.className = 'slot';
+        const btn = document.createElement('button');
+        btn.className = 'slotbtn';
+        btn.dataset.court = c;
+        btn.dataset.hour = h;
+        btn.innerHTML = '<span class="empty-mark">Libre</span>';
+        btn.addEventListener('click', ()=> openSheet(c,h));
+        td.appendChild(btn);
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+  }
+
+  function dayData(){
+    if(!store[currentDate]) store[currentDate] = {};
+    return store[currentDate];
+  }
+
+  function renderGrid(){
+    const data = dayData();
+    let total = 0;
+    document.querySelectorAll('.slotbtn').forEach(btn=>{
+      const c = btn.dataset.court, h = btn.dataset.hour;
+      const key = c+'_'+h;
+      const res = data[key];
+      if(res && res.name){
+        btn.classList.add('filled');
+        const amt = Number(res.amount)||0;
+        total += amt;
+        const totalStr = res.total ? (' / '+fmtMoney(res.total)) : '';
+        btn.innerHTML =
+          '<span class="name">'+escapeHtml(res.name)+'</span>' +
+          '<span class="amt">'+fmtMoney(amt)+totalStr+'</span>';
+      } else {
+        btn.classList.remove('filled');
+        btn.innerHTML = '<span class="empty-mark">Libre</span>';
+      }
+    });
+    document.getElementById('totalHoy').textContent = fmtMoney(total);
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function renderDateLabel(){
+    document.getElementById('datePicker').value = currentDate;
+    const [y,m,d] = currentDate.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    document.getElementById('dayName').textContent =
+      dayNames[dt.getDay()] + ' · ' + d + ' ' + monthNames[m-1] + ' ' + y;
+  }
+
+  function refreshAll(){
+    renderDateLabel();
+    renderGrid();
+  }
+
+  // ---- modal ----
+  let editing = {court:null, hour:null};
+  const overlay = document.getElementById('overlay');
+
+  function openSheet(court, hour){
+    editing = {court, hour};
+    const data = dayData();
+    const key = court+'_'+hour;
+    const res = data[key] || {};
+    document.getElementById('sheetTitle').textContent = 'Cancha ' + court;
+    const hLabel = fmtHour(hour);
+    document.getElementById('sheetMeta').textContent = hLabel + ' · ' + document.getElementById('dayName').textContent;
+    document.getElementById('fName').value = res.name || '';
+    document.getElementById('fAmount').value = res.amount || '';
+    document.getElementById('fTotal').value = res.total || '';
+    document.getElementById('btnDelete').style.display = res.name ? 'block' : 'none';
+    overlay.classList.add('open');
+    setTimeout(()=>document.getElementById('fName').focus(), 50);
+  }
+
+  function closeSheet(){
+    overlay.classList.remove('open');
+  }
+
+  document.getElementById('btnCancel').addEventListener('click', closeSheet);
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeSheet(); });
+
+  document.getElementById('btnSave').addEventListener('click', ()=>{
+    const name = document.getElementById('fName').value.trim();
+    const amount = document.getElementById('fAmount').value;
+    const total = document.getElementById('fTotal').value;
+    const data = dayData();
+    const key = editing.court+'_'+editing.hour;
+    if(!name){
+      delete data[key];
+    } else {
+      data[key] = { name, amount: amount || 0, total: total || '' };
+    }
+    saveStore();
+    refreshAll();
+    closeSheet();
+  });
+
+  document.getElementById('btnDelete').addEventListener('click', ()=>{
+    const data = dayData();
+    const key = editing.court+'_'+editing.hour;
+    delete data[key];
+    saveStore();
+    refreshAll();
+    closeSheet();
+  });
+
+  // ---- date nav ----
+  document.getElementById('datePicker').addEventListener('change', (e)=>{
+    currentDate = e.target.value;
+    refreshAll();
+  });
+  document.getElementById('prevDay').addEventListener('click', ()=>{
+    currentDate = shiftDate(currentDate, -1);
+    refreshAll();
+  });
+  document.getElementById('nextDay').addEventListener('click', ()=>{
+    currentDate = shiftDate(currentDate, 1);
+    refreshAll();
+  });
+  function shiftDate(iso, delta){
+    const [y,m,d] = iso.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate()+delta);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const dd = String(dt.getDate()).padStart(2,'0');
+    return yy+'-'+mm+'-'+dd;
+  }
+
+  buildHead();
+  buildGrid();
+  refreshAll();
+})();
+</script>
+</body>
+</html>
